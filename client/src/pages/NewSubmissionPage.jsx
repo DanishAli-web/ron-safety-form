@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/api.js';
+import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatDate, localToday } from '../utils/date.js';
 import { CHECKLIST, CHECKLIST_NAMES } from '../constants/checklist.js';
@@ -11,6 +12,7 @@ const EMPTY_CHECKLIST = Object.fromEntries(CHECKLIST_NAMES.map((name) => [name, 
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const PHOTO_BUCKET = 'submission-photos';
 
 export default function NewSubmissionPage() {
   const { profile } = useAuth();
@@ -22,12 +24,15 @@ export default function NewSubmissionPage() {
   const [workDate, setWorkDate] = useState(localToday());
   const [checklist, setChecklist] = useState(EMPTY_CHECKLIST);
   const [notes, setNotes] = useState('');
-  const [photos, setPhotos] = useState([]); // [{ id, file }]
+  // [{ id, file, path }]. `path` is set once the photo is uploaded to Storage,
+  // so a retry after a failed submit doesn't upload it again.
+  const [photos, setPhotos] = useState([]);
   const nextPhotoId = useRef(1);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(''); // e.g. "Uploading photo 2 of 3…"
   const [submitted, setSubmitted] = useState(null); // { siteName, workDate } after success
 
   useEffect(() => {
@@ -84,6 +89,41 @@ export default function NewSubmissionPage() {
     setError(null);
   }
 
+  // Uploads any photos that aren't in Storage yet, straight from the browser.
+  // The API only hands out upload tokens; the photo data never goes through it.
+  // Returns the photo list with every `path` filled in.
+  async function uploadMissingPhotos() {
+    const pending = photos.filter((photo) => !photo.path);
+    if (pending.length === 0) return photos;
+
+    setProgress('Preparing photos…');
+    const { uploads } = await apiFetch('/api/uploads', {
+      method: 'POST',
+      body: { files: pending.map((photo) => ({ type: photo.file.type, size: photo.file.size })) },
+    });
+
+    const paths = {};
+    for (let i = 0; i < pending.length; i++) {
+      setProgress(`Uploading photo ${i + 1} of ${pending.length}…`);
+      const { path, token } = uploads[i];
+      const photo = pending[i];
+
+      const { error } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .uploadToSignedUrl(path, token, photo.file, { contentType: photo.file.type });
+      if (error) {
+        throw new Error(`Photo ${i + 1} could not be uploaded. Check your connection and try again.`);
+      }
+
+      // Remember the path straight away, so photos that finished uploading
+      // aren't sent again if a later one fails
+      paths[photo.id] = path;
+      setPhotos((current) => current.map((p) => (p.id === photo.id ? { ...p, path } : p)));
+    }
+
+    return photos.map((photo) => (paths[photo.id] ? { ...photo, path: paths[photo.id] } : photo));
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
@@ -95,18 +135,27 @@ export default function NewSubmissionPage() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('site_id', siteId);
-    formData.append('work_date', workDate);
-    for (const name of CHECKLIST_NAMES) {
-      formData.append(name, String(checklist[name]));
-    }
-    if (notes.trim()) formData.append('notes', notes.trim());
-    for (const photo of photos) formData.append('photos', photo.file);
-
     setSubmitting(true);
     try {
-      await apiFetch('/api/submissions', { method: 'POST', body: formData });
+      // 1. Upload the photos directly to Storage
+      const uploaded = await uploadMissingPhotos();
+
+      // 2. Submit the form as JSON, with the photos' paths
+      setProgress('Submitting…');
+      await apiFetch('/api/submissions', {
+        method: 'POST',
+        body: {
+          site_id: siteId,
+          work_date: workDate,
+          ...checklist,
+          notes: notes.trim() || null,
+          photos: uploaded.map((photo) => ({
+            path: photo.path,
+            file_name: photo.file.name.slice(0, 255),
+          })),
+        },
+      });
+
       const siteName = sites.find((site) => site.id === siteId)?.name;
       resetForm();
       setSubmitted({ siteName, workDate });
@@ -115,6 +164,7 @@ export default function NewSubmissionPage() {
       setError(err.message);
     } finally {
       setSubmitting(false);
+      setProgress('');
     }
   }
 
@@ -258,7 +308,7 @@ export default function NewSubmissionPage() {
 
         <div className="submit-bar">
           <button type="submit" className="button button-primary button-block" disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit safety form'}
+            {submitting ? progress || 'Submitting…' : 'Submit safety form'}
           </button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 -- Site Safety Forms: database schema
+-- Run this first in the Supabase SQL Editor.
 
 -- App data for each login user (Supabase keeps the login itself in auth.users)
 create table profiles (
@@ -42,8 +43,8 @@ create table submissions (
 create table submission_photos (
   id             uuid primary key default gen_random_uuid(),
   submission_id  uuid not null references submissions (id) on delete cascade,
-  storage_path   text not null,  -- where the file lives in the storage bucket
-  file_name      text not null,  -- original file name, for display
+  storage_path   text not null unique,  -- where the file lives in the storage bucket
+  file_name      text not null,         -- original file name, for display
   created_at     timestamptz not null default now()
 );
 
