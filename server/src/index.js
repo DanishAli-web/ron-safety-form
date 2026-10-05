@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { requireAuth } from './middleware/auth.js';
 import sitesRouter from './routes/sites.js';
+import submissionsRouter from './routes/submissions.js';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 app.use('/api/sites', requireAuth, sitesRouter);
+app.use('/api/submissions', requireAuth, submissionsRouter);
 // Unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
