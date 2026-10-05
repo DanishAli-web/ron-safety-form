@@ -7,6 +7,7 @@ import submissionsRouter from './routes/submissions.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
 import summaryRouter from './routes/summary.js';
 import workersRouter from './routes/workers.js';
+import uploadsRouter from './routes/uploads.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/sites', requireAuth, sitesRouter);
 app.use('/api/submissions', requireAuth, submissionsRouter);
 app.use('/api/summary', requireAuth, requireRole('admin'), summaryRouter);
 app.use('/api/workers', requireAuth, requireRole('admin'), workersRouter);
+app.use('/api/uploads', requireAuth, requireRole('framer'), uploadsRouter);
 // Unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
