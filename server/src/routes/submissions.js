@@ -1,12 +1,10 @@
 import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
 import { supabase } from '../supabase.js';
 import { requireRole } from '../middleware/auth.js';
-import { handlePhotoUpload, ALLOWED_TYPES } from '../middleware/upload.js';
 import { isUuid, isValidDate } from '../utils/validate.js';
+import { BUCKET, MAX_FILES } from '../utils/photos.js';
 
 const router = Router();
-const BUCKET = 'submission-photos';
 
 const CHECKLIST_FIELDS = [
   'hard_hat',
@@ -19,27 +17,69 @@ const CHECKLIST_FIELDS = [
   'hazards_identified',
 ];
 
-// POST /api/submissions  (framers only)
-// Sent as multipart/form-data: site_id, work_date, checklist fields ("true"/"false"),
-// notes, and one or more files under "photos".
-router.post('/', requireRole('framer'), handlePhotoUpload, async (req, res) => {
-  const { site_id, work_date, notes } = req.body;
-  const files = req.files || [];
+// Photo paths look like "USER-ID/RANDOM-ID.jpg", as created by POST /api/uploads
+const PHOTO_PATH_RE = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i;
 
-  // ---- Validation ----
+// Checks a photo was actually uploaded to Storage at this path
+async function photoExists(path) {
+  const [folder, fileName] = path.split('/');
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .list(folder, { search: fileName, limit: 1 });
+  if (error) throw error;
+  return data.some((item) => item.name === fileName);
+}
+
+// POST /api/submissions  (framers only)
+// Sent as JSON. The photos were already uploaded straight to Storage
+// (see routes/uploads.js), so only their paths are sent here:
+// { site_id, work_date, notes, hard_hat: true, ..., photos: [{ path, file_name }] }
+router.post('/', requireRole('framer'), async (req, res) => {
+  const { site_id, work_date, notes, photos } = req.body ?? {};
+
+  // ---- Validate the form ----
   if (!isUuid(site_id)) {
     return res.status(400).json({ error: 'Please choose a job site.' });
   }
   if (!isValidDate(work_date)) {
     return res.status(400).json({ error: 'Please choose a valid date.' });
   }
-  if (files.length === 0) {
-    return res.status(400).json({ error: 'Please attach at least one photo.' });
-  }
-  if (notes && notes.length > 2000) {
+  if (notes != null && (typeof notes !== 'string' || notes.length > 2000)) {
     return res.status(400).json({ error: 'Notes must be 2000 characters or fewer.' });
   }
 
+  // ---- Validate the photos ----
+  if (!Array.isArray(photos) || photos.length === 0) {
+    return res.status(400).json({ error: 'Please attach at least one photo.' });
+  }
+  if (photos.length > MAX_FILES) {
+    return res.status(400).json({ error: `You can attach up to ${MAX_FILES} photos.` });
+  }
+
+  const ownFolder = `${req.user.id}/`;
+  for (const photo of photos) {
+    // Only photos uploaded into this user's own folder can be attached
+    if (
+      typeof photo?.path !== 'string' ||
+      !PHOTO_PATH_RE.test(photo.path) ||
+      !photo.path.startsWith(ownFolder)
+    ) {
+      return res.status(400).json({ error: 'One of the photos is invalid. Please add it again.' });
+    }
+    if (typeof photo.file_name !== 'string' || !photo.file_name || photo.file_name.length > 255) {
+      return res.status(400).json({ error: 'One of the photos is missing its file name.' });
+    }
+  }
+  if (new Set(photos.map((p) => p.path)).size !== photos.length) {
+    return res.status(400).json({ error: 'The same photo was attached twice.' });
+  }
+
+  const found = await Promise.all(photos.map((p) => photoExists(p.path)));
+  if (found.includes(false)) {
+    return res.status(400).json({ error: 'One of the photos did not finish uploading. Please try again.' });
+  }
+
+  // ---- Check the site ----
   const { data: site, error: siteError } = await supabase
     .from('sites')
     .select('id')
@@ -51,10 +91,10 @@ router.post('/', requireRole('framer'), handlePhotoUpload, async (req, res) => {
     return res.status(400).json({ error: 'That job site does not exist.' });
   }
 
-  // Checkboxes arrive as strings; anything other than "true" counts as unchecked
+  // JSON has real booleans now; anything other than true counts as unchecked
   const checklist = {};
   for (const field of CHECKLIST_FIELDS) {
-    checklist[field] = req.body[field] === 'true';
+    checklist[field] = req.body[field] === true;
   }
 
   // ---- 1. Save the submission ----
@@ -80,33 +120,24 @@ router.post('/', requireRole('framer'), handlePhotoUpload, async (req, res) => {
     throw insertError;
   }
 
-  // ---- 2. Upload photos, then record them ----
-  // If anything fails, remove what was saved so we don't leave a form with missing photos.
-  const uploadedPaths = [];
-  try {
-    for (const file of files) {
-      const path = `${submission.id}/${randomUUID()}.${ALLOWED_TYPES[file.mimetype]}`;
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file.buffer, { contentType: file.mimetype });
-      if (error) throw error;
-      uploadedPaths.push({ path, file_name: file.originalname });
-    }
+  // ---- 2. Record the photos ----
+  const { error: photoError } = await supabase.from('submission_photos').insert(
+    photos.map((p) => ({
+      submission_id: submission.id,
+      storage_path: p.path,
+      file_name: p.file_name,
+    })),
+  );
 
-    const { error: photoError } = await supabase.from('submission_photos').insert(
-      uploadedPaths.map((p) => ({
-        submission_id: submission.id,
-        storage_path: p.path,
-        file_name: p.file_name,
-      })),
-    );
-    if (photoError) throw photoError;
-  } catch (err) {
-    if (uploadedPaths.length > 0) {
-      await supabase.storage.from(BUCKET).remove(uploadedPaths.map((p) => p.path));
-    }
+  if (photoError) {
+    // Undo the submission so there's never a form without its photos.
+    // The uploaded files stay in Storage, so the user can retry with them.
     await supabase.from('submissions').delete().eq('id', submission.id);
-    throw err;
+
+    if (photoError.code === '23505') {
+      return res.status(400).json({ error: 'One of these photos is already attached to another form.' });
+    }
+    throw photoError;
   }
 
   res.status(201).json({ id: submission.id, message: 'Safety form submitted.' });
