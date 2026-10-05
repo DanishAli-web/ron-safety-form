@@ -1,6 +1,8 @@
 import 'dotenv/config'; // load .env before anything reads process.env
 import express from 'express';
 import cors from 'cors';
+import { requireAuth } from './middleware/auth.js';
+import sitesRouter from './routes/sites.js';
 
 const app = express();
 
@@ -13,6 +15,12 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true });
 });
 
+// Logged-in user's own profile; the frontend uses this to know the role
+app.get('/api/me', requireAuth, (req, res) => {
+  res.json(req.user);
+});
+
+app.use('/api/sites', requireAuth, sitesRouter);
 // Unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
