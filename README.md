@@ -34,7 +34,7 @@ Photos go into a private storage bucket, and the API hands out links that expire
 
 ## Database
 
-![ERD](docs/erd.png)
+![ERD](docs/ERD.png)
 
 There are four tables: `profiles` (name and role for each login), `sites`, `submissions` and `submission_photos`. Supabase manages the logins themselves in its own `auth.users` table, and each profile shares its ID with a login.
 
