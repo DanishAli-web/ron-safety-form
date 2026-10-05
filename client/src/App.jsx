@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import NewSubmissionPage from './pages/NewSubmissionPage.jsx';
 import MySubmissionsPage from './pages/MySubmissionsPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
+import SubmissionDetailPage from './pages/SubmissionDetailPage.jsx';
 
 // Sends "/" to the right home page for the logged-in user
 function HomeRedirect() {
@@ -43,6 +44,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+                {/* Both roles; the API makes sure framers only see their own */}
+        <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
         <Route
           path="/admin"
           element={
