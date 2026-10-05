@@ -1,9 +1,12 @@
 import 'dotenv/config'; // load .env before anything reads process.env
 import express from 'express';
 import cors from 'cors';
-import { requireAuth } from './middleware/auth.js';
+//import { requireAuth } from './middleware/auth.js';
 import sitesRouter from './routes/sites.js';
 import submissionsRouter from './routes/submissions.js';
+import { requireAuth, requireRole } from './middleware/auth.js';
+import summaryRouter from './routes/summary.js';
+import workersRouter from './routes/workers.js';
 
 const app = express();
 
@@ -23,6 +26,8 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.use('/api/sites', requireAuth, sitesRouter);
 app.use('/api/submissions', requireAuth, submissionsRouter);
+app.use('/api/summary', requireAuth, requireRole('admin'), summaryRouter);
+app.use('/api/workers', requireAuth, requireRole('admin'), workersRouter);
 // Unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
