@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api.js';
 import { localToday } from '../utils/date.js';
 
-// Today's status and a simple bar chart of forms per site (last 7 days).
-// Clicking a site's bar filters the table below to that site.
+/**
+ * Top of the admin dashboard: who has and hasn't submitted today, and a bar
+ * chart of forms per site over the last 7 days. Sends the admin's local date
+ * so "today" matches BC time rather than the server's UTC.
+ *
+ * @param {object} props
+ * @param {(siteId: string) => void} props.onSelectSite 
+ * @returns {JSX.Element}
+ */
 export default function AdminSummary({ onSelectSite }) {
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Send the admin's local date so "today" matches BC time, not the server's UTC
     apiFetch(`/api/summary?date=${localToday()}`)
       .then(setSummary)
       .catch((err) => setError(err.message));

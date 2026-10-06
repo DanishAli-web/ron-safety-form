@@ -4,9 +4,13 @@ import { apiFetch } from '../lib/api.js';
 import { formatDate } from '../utils/date.js';
 import AdminSummary from '../components/AdminSummary.jsx';
 
-export default function AdminDashboardPage() {
-  // Filters live in the URL (?site_id=...&from=...), so they survive a page
-  // refresh and the back button returns to the same filtered list.
+/**
+ * The admin dashboard: the summary, filters, and a table of all submissions.
+ *
+ * @returns {JSX.Element}
+ */
+
+export default function AdminDashboardPage() { 
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const filters = {
@@ -20,10 +24,10 @@ export default function AdminDashboardPage() {
 
   const [sites, setSites] = useState([]);
   const [workers, setWorkers] = useState([]);
-  const [submissions, setSubmissions] = useState(null); // null = loading
+  const [submissions, setSubmissions] = useState(null); 
   const [error, setError] = useState(null);
 
-  // Options for the filter dropdowns
+  
   useEffect(() => {
     Promise.all([apiFetch('/api/sites'), apiFetch('/api/workers')])
       .then(([siteList, workerList]) => {
@@ -33,7 +37,7 @@ export default function AdminDashboardPage() {
       .catch((err) => setError(err.message));
   }, []);
 
-  // Reload the table whenever the filters in the URL change
+ 
   const queryString = searchParams.toString();
   useEffect(() => {
     if (rangeInvalid) {
@@ -52,11 +56,19 @@ export default function AdminDashboardPage() {
         if (!cancelled) setError(err.message);
       });
 
-    // If filters change again before this request finishes, ignore its result
+    
     return () => {
       cancelled = true;
     };
   }, [queryString, rangeInvalid]);
+
+  /**
+   * Sets or clears one filter in the URL, which reloads the table.
+   * An empty value removes the filter entirely.
+   *
+   * @param {'site_id' | 'user_id' | 'from' | 'to'} name
+   * @param {string} value
+   */
 
   function updateFilter(name, value) {
     const next = new URLSearchParams(searchParams);

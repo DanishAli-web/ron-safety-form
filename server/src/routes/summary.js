@@ -4,9 +4,13 @@ import { isValidDate, todayUtc, addDays } from '../utils/validate.js';
 
 const router = Router();
 
-// GET /api/summary?date=YYYY-MM-DD  (admins only)
-// - date: the day to check "who has / hasn't submitted" (send the user's local date)
-// - submissions per site over the 7 days ending on that date
+/**
+ * GET /api/summary?date=YYYY-MM-DD
+ *
+ * @param {import('express').Request} req - Optional `req.query.date`.
+ * @param {import('express').Response} res - Sends
+ *   `{ date, from, to, submissionsPerSite, submitted, missing }`.
+ */
 router.get('/', async (req, res) => {
   const date = req.query.date || todayUtc();
   if (!isValidDate(date)) return res.status(400).json({ error: 'Invalid date.' });

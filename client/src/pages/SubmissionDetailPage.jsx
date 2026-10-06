@@ -5,8 +5,12 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { formatDate } from '../utils/date.js';
 import { CHECKLIST, CHECKLIST_NAMES } from '../constants/checklist.js';
 
-// One submission: checklist answers, notes and photos.
-// Used by both roles; the API only returns a framer's own submissions.
+/**
+ * One submission in full: checklist answers, notes and photos. Shared by both
+ * roles
+ *
+ * @returns {JSX.Element}
+ */
 export default function SubmissionDetailPage() {
   const { id } = useParams();
   const { profile } = useAuth();
@@ -24,9 +28,14 @@ export default function SubmissionDetailPage() {
       .catch((err) => setError(err.message));
   }, [id]);
 
-  // Go back to the list the user came from (keeping admin filters)
+
   const backTo = location.state?.backTo || (isAdmin ? '/admin' : '/my-submissions');
 
+  /**
+   * Switches the submission between "reviewed" and "submitted"
+   *
+   * @returns {Promise<void>}
+   */
   async function toggleReviewed() {
     const nextStatus = submission.status === 'reviewed' ? 'submitted' : 'reviewed';
     setUpdating(true);

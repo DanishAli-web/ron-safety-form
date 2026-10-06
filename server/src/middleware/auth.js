@@ -1,7 +1,25 @@
 import { supabase } from '../supabase.js';
 
-// Checks the "Authorization: Bearer <token>" header, confirms the token with
-// Supabase, then loads the user's profile so routes can use req.user.
+/**
+ * A user's app profile, from the profiles table.
+ *
+ * @typedef {object} Profile
+ * @property {string} id - Same ID as the user's Supabase login (auth.users.id).
+ * @property {string} full_name
+ * @property {'framer' | 'admin'} role
+ */
+ 
+/**
+ * Express middleware that requires a valid login.
+ * Reads the `Authorization: Bearer <token>` header.
+ * Responds 401 if the token is missing, invalid or expired, and 403 if the
+ * login has no profile.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ * @returns {Promise<void>}
+ */
 export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -30,7 +48,14 @@ export async function requireAuth(req, res, next) {
   next();
 }
 
-// Use after requireAuth, e.g. router.get('/', requireAuth, requireRole('admin'), ...)
+/**
+ * Creates middleware that only lets users with the given role through.
+ * Must run after {@link requireAuth}, which sets `req.user`. Responds 403 otherwise.
+ *
+ * @param {'framer' | 'admin'} role - The role required.
+ * @returns {import('express').RequestHandler} The middleware.
+ */
+
 export function requireRole(role) {
   return (req, res, next) => {
     if (req.user.role !== role) {

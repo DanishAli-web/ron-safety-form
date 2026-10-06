@@ -5,10 +5,16 @@ import { ALLOWED_TYPES, BUCKET, MAX_FILE_SIZE, MAX_FILES } from '../utils/photos
 
 const router = Router();
 
-// POST /api/uploads  (framers only)
-// Body: { "files": [{ "type": "image/jpeg", "size": 2048000 }, ...] }
-// Returns one signed upload URL per photo. The browser uploads the photos
-// straight to Supabase Storage, so photo data never passes through this server.
+/**
+ * POST /api/uploads
+ *
+ * Gives the browser permission to upload photos directly to Supabase Storage,
+ * so photo data never passes through this server. Framers only.
+ *
+ * @param {import('express').Request} req - Body: `{ files: [{ type, size }] }`.
+ * @param {import('express').Response} res - Sends
+ *   `{ uploads: [{ path, token, signed_url }] }`, in the same order as `files`.
+ */
 router.post('/', async (req, res) => {
   const files = req.body?.files;
 

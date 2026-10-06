@@ -3,7 +3,14 @@ import { supabase } from '../supabase.js';
 
 const router = Router();
 
-// GET /api/workers  (admins only) - framers, for the dashboard's worker filter
+/**
+ * GET /api/workers
+ *
+ * Lists all framers, sorted by name, for the dashboard's worker filter. Admins only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res - Sends an array of `{ id, full_name }`.
+ */
 router.get('/', async (req, res) => {
   const { data, error } = await supabase
     .from('profiles')

@@ -7,5 +7,9 @@ if (!url || !anonKey) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
 }
 
-// Browser client. Used only for logging in and out; all data goes through our API.
+/**
+ * Browser Supabase client, using the public publishable key.
+ *
+ * @type {import('@supabase/supabase-js').SupabaseClient}
+ */
 export const supabase = createClient(url, anonKey);

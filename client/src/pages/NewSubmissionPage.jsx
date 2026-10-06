@@ -6,13 +6,27 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { formatDate, localToday } from '../utils/date.js';
 import { CHECKLIST, CHECKLIST_NAMES } from '../constants/checklist.js';
 
+/**
+ * Every checklist item, unchecked.
+ * @type {Record<string, boolean>}
+ */
+
 const EMPTY_CHECKLIST = Object.fromEntries(CHECKLIST_NAMES.map((name) => [name, false]));
 
-// Same limits as the API
+
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const PHOTO_BUCKET = 'submission-photos';
+
+/**
+ * @typedef {object} SelectedPhoto
+ * @property {number} id
+ * @property {File} file 
+ * @property {string} [path] - Where it was saved in Storage, once uploaded.
+ *
+ * @returns {JSX.Element}
+ */
 
 export default function NewSubmissionPage() {
   const { profile } = useAuth();
@@ -24,16 +38,14 @@ export default function NewSubmissionPage() {
   const [workDate, setWorkDate] = useState(localToday());
   const [checklist, setChecklist] = useState(EMPTY_CHECKLIST);
   const [notes, setNotes] = useState('');
-  // [{ id, file, path }]. `path` is set once the photo is uploaded to Storage,
-  // so a retry after a failed submit doesn't upload it again.
   const [photos, setPhotos] = useState([]);
   const nextPhotoId = useRef(1);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState(''); // e.g. "Uploading photo 2 of 3…"
-  const [submitted, setSubmitted] = useState(null); // { siteName, workDate } after success
+  const [progress, setProgress] = useState(''); 
+  const [submitted, setSubmitted] = useState(null); 
 
   useEffect(() => {
     apiFetch('/api/sites')
@@ -41,13 +53,23 @@ export default function NewSubmissionPage() {
       .catch((err) => setSitesError(err.message));
   }, []);
 
+   /**
+   * Ticks or unticks one checklist item.
+   *
+   * @param {string} name - The item's name, such as `hard_hat`.
+   */
+
   function toggleItem(name) {
     setChecklist((current) => ({ ...current, [name]: !current[name] }));
   }
 
+
+  /**
+   * @param {import('react').ChangeEvent<HTMLInputElement>} event
+   */
   function handleAddPhotos(event) {
     const chosen = Array.from(event.target.files);
-    event.target.value = ''; // so choosing the same file again still triggers onChange
+    event.target.value = ''; 
 
     const accepted = [];
     let problem = null;
@@ -67,9 +89,21 @@ export default function NewSubmissionPage() {
     setFieldErrors((current) => ({ ...current, photos: problem }));
   }
 
+  /**
+   * Removes a chosen photo.
+   *
+   * @param {number} id - The photo's local ID.
+   */
+
   function removePhoto(id) {
     setPhotos((current) => current.filter((photo) => photo.id !== id));
   }
+
+  /**
+   * Checks the required fields before anything is sent.
+   *
+   * @returns {Record<string, string>} 
+   */
 
   function validate() {
     const errors = {};
@@ -89,9 +123,11 @@ export default function NewSubmissionPage() {
     setError(null);
   }
 
-  // Uploads any photos that aren't in Storage yet, straight from the browser.
-  // The API only hands out upload tokens; the photo data never goes through it.
-  // Returns the photo list with every `path` filled in.
+  /**
+   * @returns {Promise<SelectedPhoto[]>} 
+   * @throws {Error} 
+   */
+
   async function uploadMissingPhotos() {
     const pending = photos.filter((photo) => !photo.path);
     if (pending.length === 0) return photos;
@@ -115,14 +151,19 @@ export default function NewSubmissionPage() {
         throw new Error(`Photo ${i + 1} could not be uploaded. Check your connection and try again.`);
       }
 
-      // Remember the path straight away, so photos that finished uploading
-      // aren't sent again if a later one fails
+    
       paths[photo.id] = path;
       setPhotos((current) => current.map((p) => (p.id === photo.id ? { ...p, path } : p)));
     }
 
     return photos.map((photo) => (paths[photo.id] ? { ...photo, path: paths[photo.id] } : photo));
   }
+
+  /**
+   * Validates the form, uploads the photos, then sends the form to the API.
+   *
+   * @returns {Promise<void>}
+   */
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -137,10 +178,9 @@ export default function NewSubmissionPage() {
 
     setSubmitting(true);
     try {
-      // 1. Upload the photos directly to Storage
+      
       const uploaded = await uploadMissingPhotos();
 
-      // 2. Submit the form as JSON, with the photos' paths
       setProgress('Submitting…');
       await apiFetch('/api/submissions', {
         method: 'POST',
@@ -315,9 +355,13 @@ export default function NewSubmissionPage() {
     </section>
   );
 }
-
-// Shows a preview of a chosen photo. The temporary preview URL is
-// released when the thumbnail is removed, to avoid leaking memory.
+/**
+ * A preview of a chosen photo with a remove button. 
+ * @param {object} props
+ * @param {File} props.file 
+ * @param {() => void} props.onRemove 
+ * @returns {JSX.Element}
+ */
 function PhotoThumb({ file, onRemove }) {
   const [url, setUrl] = useState(null);
 

@@ -1,6 +1,9 @@
-// Photo rules shared by the upload and submission routes
+
 export const BUCKET = 'submission-photos';
 
+/**
+ * @type {Record<string, string>}
+ */
 export const ALLOWED_TYPES = {
   'image/jpeg': 'jpg',
   'image/png': 'png',

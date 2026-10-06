@@ -1,12 +1,8 @@
-/* ==========================================================
-   Brand tokens
-   Replace the --brand values with the RAS colors from their
-   website and Instagram. Everything else picks them up.
-   ========================================================== */
+
 :root {
-    --brand: #045339;          /* RAS green */
-  --brand-dark: #03422d;     /* darker green, for hover */
-  --brand-contrast: #ffffff; /* white text and logo on the green */
+  --brand: #045339;          
+  --brand-dark: #03422d;     
+  --brand-contrast: #ffffff; 
 
   --ink: #1d2125;
   --ink-muted: #5b6470;
@@ -23,7 +19,7 @@
   --font-heading: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
 
   --radius: 6px;
-  --tap: 52px; /* minimum touch target height: easy to hit with work gloves */
+  --tap: 52px; 
 }
 
 /* ---------- Base ---------- */

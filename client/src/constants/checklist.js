@@ -1,6 +1,23 @@
-// Single source of truth for the safety checklist.
-// Used by the form (to render checkboxes) and the detail page (to show answers).
-// `name` matches the column name in the submissions table.
+/**
+ * One checklist item. `name` matches its column in the submissions table.
+ * @typedef {object} ChecklistItem
+ * @property {string} name
+ * @property {string} label
+ */
+ 
+/**
+ * A titled group of checklist items.
+ * @typedef {object} ChecklistGroup
+ * @property {string} title
+ * @property {ChecklistItem[]} items
+ */
+ 
+/**
+ * The safety checklist, shared by the form (to draw the checkboxes) and the
+ * detail page (to show the answers).
+ * @type {ChecklistGroup[]}
+ */
+
 export const CHECKLIST = [
   {
     title: 'Protective equipment',

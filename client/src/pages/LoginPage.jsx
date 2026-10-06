@@ -3,6 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { useAuth, homePathFor } from '../context/AuthContext.jsx';
 import Logo from '../components/Logo.jsx';
 
+/**
+ * @returns {JSX.Element}
+ */
+
 export default function LoginPage() {
   const { profile, loading, authError, signIn } = useAuth();
   const [email, setEmail] = useState('');
@@ -10,8 +14,14 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Already logged in? Go straight to the right home page.
+  
   if (profile) return <Navigate to={homePathFor(profile.role)} replace />;
+
+  /**
+   * Checks both fields are filled in, then signs in.
+   *
+   * @returns {Promise<void>}
+   */
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -25,7 +35,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
-      // AuthContext loads the profile, and the redirect above takes over
+      
     } catch (err) {
       setError(err.message);
     } finally {

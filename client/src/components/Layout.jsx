@@ -2,6 +2,14 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import Logo from './Logo.jsx';
 
+/**
+ * header with the logo, links for
+ * the user's role, their name and a log out button. The current page appears
+ * in place of `<Outlet />`.
+ *
+ * @returns {JSX.Element}
+ */
+
 export default function Layout() {
   const { profile, signOut } = useAuth();
 

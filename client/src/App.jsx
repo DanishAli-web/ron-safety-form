@@ -8,13 +8,22 @@ import MySubmissionsPage from './pages/MySubmissionsPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import SubmissionDetailPage from './pages/SubmissionDetailPage.jsx';
 
-// Sends "/" to the right home page for the logged-in user
+/**
+ * Sends any unknown URL, including `/`, to the logged-in user's home page,
+ * or to the login page if nobody is logged in.
+ *
+ * @returns {JSX.Element}
+ */
 function HomeRedirect() {
   const { profile, loading } = useAuth();
   if (loading) return <p className="page-status">Loading…</p>;
   return <Navigate to={profile ? homePathFor(profile.role) : '/login'} replace />;
 }
 
+/**
+ * Maps each URL to its page, the detail page is shared by both roles,
+ * @returns {JSX.Element}
+ */
 export default function App() {
   return (
     <Routes>

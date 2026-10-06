@@ -6,6 +6,10 @@ import { BUCKET, MAX_FILES } from '../utils/photos.js';
 
 const router = Router();
 
+/**
+ * @type {string[]}
+ */
+
 const CHECKLIST_FIELDS = [
   'hard_hat',
   'hi_vis_vest',
@@ -17,10 +21,19 @@ const CHECKLIST_FIELDS = [
   'hazards_identified',
 ];
 
-// Photo paths look like "USER-ID/RANDOM-ID.jpg", as created by POST /api/uploads
+/**
+ * Shape of a photo path created by POST /api/uploads: `USER-ID/RANDOM-ID.ext`.
+ * @type {RegExp}
+ */
 const PHOTO_PATH_RE = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i;
 
-// Checks a photo was actually uploaded to Storage at this path
+/**
+ * Checks that a photo was actually uploaded to Storage at the given path.
+ *
+ * @param {string} path 
+ * @returns {Promise<boolean>} 
+ * @throws 
+ */
 async function photoExists(path) {
   const [folder, fileName] = path.split('/');
   const { data, error } = await supabase.storage
@@ -30,10 +43,13 @@ async function photoExists(path) {
   return data.some((item) => item.name === fileName);
 }
 
-// POST /api/submissions  (framers only)
-// Sent as JSON. The photos were already uploaded straight to Storage
-// (see routes/uploads.js), so only their paths are sent here:
-// { site_id, work_date, notes, hard_hat: true, ..., photos: [{ path, file_name }] }
+/**
+ *  POST /api/submissions
+ * @param {import('express').Request} req - JSON body:
+ *   `{ site_id, work_date, notes?, hard_hat?, …, photos: [{ path, file_name }] }`.
+ *   Checklist values must be booleans; anything other than `true` counts as unchecked.
+ * @param {import('express').Response} res
+ */
 router.post('/', requireRole('framer'), async (req, res) => {
   const { site_id, work_date, notes, photos } = req.body ?? {};
 
@@ -143,9 +159,16 @@ router.post('/', requireRole('framer'), async (req, res) => {
   res.status(201).json({ id: submission.id, message: 'Safety form submitted.' });
 });
 
-// GET /api/submissions
-// Framers get only their own. Admins get everyone's and can filter by user_id.
-// Optional filters: site_id, user_id (admin), from, to (YYYY-MM-DD)
+/**
+ * GET /api/submissions
+ * 
+ * Lists submissions, newest first. Framers always get only their own; admins
+ * get everyone's and can filter by worker.
+ * @param {import('express').Request} req - Optional query filters: `site_id`,
+ *   `user_id` (admins only), `from` and `to` (YYYY-MM-DD, inclusive).
+ * @param {import('express').Response} res - Sends an array of
+ *   `{ id, work_date, status, created_at, site, worker, photo_count }`.
+ */
 router.get('/', async (req, res) => {
   const { site_id, user_id, from, to } = req.query;
 
@@ -177,11 +200,18 @@ router.get('/', async (req, res) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  // Supabase returns the count as [{ count: n }]; flatten it to a number
+
   res.json(data.map(({ photos, ...row }) => ({ ...row, photo_count: photos[0]?.count ?? 0 })));
 });
 
-// GET /api/submissions/:id  - full details plus temporary photo links
+/**
+ * GET /api/submissions/:id
+ * missing one, so the API doesn't reveal which IDs exist.
+ *
+ * @param {import('express').Request} req 
+ * @param {import('express').Response} res - Sends the submission with
+ *   `photos: [{ id, file_name, created_at, url }]`.
+ */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(404).json({ error: 'Submission not found.' });
@@ -199,13 +229,11 @@ router.get('/:id', async (req, res) => {
 
   if (error) throw error;
 
-  // A framer asking for someone else's form gets the same answer as a missing one,
-  // so the API doesn't reveal which IDs exist.
+  
   if (!submission || (req.user.role === 'framer' && submission.user_id !== req.user.id)) {
     return res.status(404).json({ error: 'Submission not found.' });
   }
 
-  // The bucket is private, so create links that expire after an hour
   let photos = [];
   if (submission.photos.length > 0) {
     const { data: signed, error: signError } = await supabase.storage
@@ -224,7 +252,15 @@ router.get('/:id', async (req, res) => {
   res.json({ ...submission, photos });
 });
 
-// PATCH /api/submissions/:id/status  (admins only)  body: { "status": "reviewed" }
+/**
+ * PATCH /api/submissions/:id/status
+ *
+ * Marks a submission as reviewed, or back to submitted. Admins only.
+ *
+ * @param {import('express').Request} req - `req.params.id`, and JSON body
+ *   `{ status: 'submitted' | 'reviewed' }`.
+ * @param {import('express').Response} res 
+ */
 router.patch('/:id/status', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;

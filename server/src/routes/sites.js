@@ -3,7 +3,10 @@ import { supabase } from '../supabase.js';
 
 const router = Router();
 
-// GET /api/sites - list of job sites for the form dropdown and dashboard filters
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res - Sends an array of `{ id, name, address }`.
+ */
 router.get('/', async (req, res) => {
   const { data, error } = await supabase
     .from('sites')

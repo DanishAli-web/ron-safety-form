@@ -3,8 +3,15 @@ import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/api.js';
 import { formatDate } from '../utils/date.js';
 
+/**
+ * A framer's list of their own past forms, newest first, each linking to its
+ * detail page. The API only returns the framer's own submissions.
+ *
+ * @returns {JSX.Element}
+ */
+
 export default function MySubmissionsPage() {
-  const [submissions, setSubmissions] = useState(null); // null = still loading
+  const [submissions, setSubmissions] = useState(null); 
   const [error, setError] = useState(null);
 
   useEffect(() => {
